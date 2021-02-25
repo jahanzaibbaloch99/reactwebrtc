@@ -15,6 +15,11 @@ const App = () => {
   const room = "121212";
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
+  const [candidateData, setCandidateData] = useState({});
+  const [dialing, setDialing] = useState(false);
+  const [startPC, setStartPC] = useState(false);
+  const [answerData, setAnswerData] = useState(false);
+  const [receiving, setReceiveCall] = useState(false);
   const userVideo = useRef(null);
   const partnerVideo = useRef(null);
   // useLayoutEffect(() => {
@@ -35,6 +40,7 @@ const App = () => {
     ws.onmessage = async (message) => {
       console.log("Got message:", message);
       const data = JSON.parse(message.data);
+      // console.log(data.offer, "OFFER");
       switch (data.type) {
         case "enter":
           await onEnter(data.success, data.full, data.wait);
@@ -43,7 +49,7 @@ const App = () => {
           await onOffer(data.offer, data.remoteId);
           break;
         case "answer":
-          await onAnswer(data.answer);
+          onAnswer(data.answer);
           break;
         case "candidate":
           await onCandidate(data.candidate);
@@ -57,6 +63,7 @@ const App = () => {
     };
 
     const send = (message) => {
+      console.log(message, "MESSAGE");
       message.room = room;
       if (remoteId) {
         message.remoteId = remoteId;
@@ -73,7 +80,7 @@ const App = () => {
           startConnection(true);
         }
       } else {
-        startConnection();
+        // startConnection();
         if (full) {
           //TODO: full
         } else {
@@ -83,10 +90,9 @@ const App = () => {
     };
 
     const startConnection = async (startPC = false) => {
-      console.log("STRA");
+      console.log("STRA", startPC, "STARTPC");
       if (navigator.getUserMedia) {
         const isFront = true;
-
         const facingMode = isFront ? "user" : "environment";
         const constraints = {
           audio: true,
@@ -99,14 +105,13 @@ const App = () => {
             facingMode,
           },
         };
-        await navigator.mediaDevices.getUserMedia(
+        navigator.getUserMedia(
           {
             audio: true,
             video: true,
             facingMode,
           },
           async (stream) => {
-            console.log(stream, "STREAM");
             setLocalStream(stream);
             userVideo.current.srcObject = stream;
             await setupPeerConnection(stream, startPC);
@@ -118,7 +123,6 @@ const App = () => {
       }
     };
     const setupPeerConnection = async (stream, startPC = false) => {
-      console.log("WORK");
       const configuration = {
         iceServers: [
           {
@@ -128,7 +132,6 @@ const App = () => {
       };
       const conn = new window.RTCPeerConnection(configuration);
       connection = conn;
-      console.log(conn, "CONN");
       conn.addStream(stream);
       conn.onaddstream = (event) => {
         if (event.stream) {
@@ -145,7 +148,6 @@ const App = () => {
           });
         }
       };
-
       if (startPC) {
         await startPeerConnection();
       }
@@ -182,10 +184,10 @@ const App = () => {
       }
     };
 
-    const onAnswer = async (answer) =>
-      await connection.setRemoteDescription(
-        new window.RTCSessionDescription(answer)
-      );
+    const onAnswer = (answer) => {
+      setReceiveCall(true);
+      setAnswerData(answer);
+    };
 
     const onCandidate = async (candidate) =>
       await connection.addIceCandidate(new window.RTCIceCandidate(candidate));
@@ -193,7 +195,7 @@ const App = () => {
     const onLeave = async () => {
       remoteId = null;
       setRemoteStream(null);
-      partnerVideo.current = "";
+      // partnerVideo.current.srcObject = "";
       connection.close();
       connection.onaddstream = null;
       connection.onicecandidate = null;
@@ -204,6 +206,7 @@ const App = () => {
       send({
         type: "enter",
         id,
+        // on enter we would send strapiId just to ensure that someone is listening on otherside,
       });
     } else {
       // Error
@@ -218,8 +221,12 @@ const App = () => {
       });
     };
     // return unsubscribe;
-  }, [room]);
-
+  }, [room, startPC]);
+  const receiveCall = async () => {
+    await connection.setRemoteDescription(
+      new window.RTCSessionDescription(answerData)
+    );
+  };
   return (
     <div className="app">
       <header className="App-header">
@@ -249,6 +256,14 @@ const App = () => {
           autoPlay
           className="videoElement"
         />
+        <button
+          onClick={() => {
+            setStartPC(false);
+          }}
+        >
+          Dial
+        </button>
+        {receiving ? <button onClick={receiveCall}>Receive</button> : null}
       </header>
     </div>
   );

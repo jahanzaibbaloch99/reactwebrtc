@@ -28,6 +28,7 @@ wss.on("connection", (connection) => {
             });
           } else {
             rooms[data.room][data.id] = connection;
+            console.log(connection , "CONN")
             connection.room = data.room;
             connection.id = data.id;
             sendTo(connection, {
@@ -38,6 +39,7 @@ wss.on("connection", (connection) => {
             });
           }
         } else {
+          console.log("WAIT")
           rooms[data.room] = {};
           rooms[data.room][data.id] = connection;
           connection.room = data.room;
@@ -63,6 +65,7 @@ wss.on("connection", (connection) => {
           }
 
           if (conn != null) {
+            console.log(conn,"CONNNNN OFFER")
             console.log("Sending offer to", remoteId);
             connection.remoteId = remoteId;
             conn.remoteId = connection.id;
@@ -77,7 +80,7 @@ wss.on("connection", (connection) => {
       case "answer":
         {
           const conn = rooms[connection.room][data.remoteId];
-
+          console.log(conn , "CONN ANSWER")
           if (conn != null) {
             console.log("Sending answer to", data.remoteId);
             connection.remoteId = data.remoteId;
@@ -135,7 +138,6 @@ wss.on("connection", (connection) => {
         console.log("Disconnecting user from", connection.remoteId);
         const conn = rooms[connection.room][connection.remoteId];
         conn.remoteId = null;
-
         if (conn !== null) {
           sendTo(conn, {
             type: "leave",
